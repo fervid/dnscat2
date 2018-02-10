@@ -379,6 +379,14 @@ it can be given a specific ip address to connect to instead:
 Assuming there's a dnscat2 server running on that host/port, it'll
 create a session there.
 
+
+#### IPv6
+
+To use IPv6 pass "-6" option to dnscat2, for example:
+
+    ./dnscat2 -6 example.org
+
+
 ### Tunnels
 
 Yo dawg; I hear you like tunnels, so now you can tunnel a tunnel through

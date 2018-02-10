@@ -9,7 +9,8 @@
 CC?=gcc
 DEBUG_CFLAGS?=-DTESTMEMORY -Werror -O0
 RELEASE_CFLAGS?=-Os
-CFLAGS?=--std=c89 -I. -Wall -D_DEFAULT_SOURCE -fstack-protector-all -Wformat -Wformat-security -g
+CFLAGS?=--std=gnu99 -I. -Wall -D_DEFAULT_SOURCE -fstack-protector-all -Wformat -Wformat-security -g
+
 LIBS=-pie -Wl,-z,relro,-z,now
 
 OBJS=controller/packet.o \

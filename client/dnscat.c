@@ -196,6 +196,9 @@ void usage(char *name, char *message)
 " --no-encryption         Turn off encryption/authentication.\n"
 #endif
 "\n"
+"IPv6 options:\n"
+" -6                      Force using IPv6\n"
+"\n"
 "Input options:\n"
 " --console               Send/receive output to the console.\n"
 " --exec -e <process>     Execute the given process and link it to the stream.\n"
@@ -247,7 +250,7 @@ void usage(char *name, char *message)
   exit(0);
 }
 
-driver_dns_t *create_dns_driver_internal(select_group_t *group, char *domain, char *host, uint16_t port, char *type, char *server)
+driver_dns_t *create_dns_driver_internal(select_group_t *group, char *domain, char *host, uint16_t port, char *type, char *server, int ipv6_enabled)
 {
   if(!server && !domain)
   {
@@ -293,13 +296,13 @@ driver_dns_t *create_dns_driver_internal(select_group_t *group, char *domain, ch
   printf(" type   = %s\n", type);
   printf(" server = %s\n", server);
 
-  return driver_dns_create(group, domain, host, port, type, server);
+  return driver_dns_create(group, domain, host, port, type, server, ipv6_enabled);
 }
 
-driver_dns_t *create_dns_driver(select_group_t *group, char *options)
+driver_dns_t *create_dns_driver(select_group_t *group, char *options, int ipv6_enabled)
 {
   char     *domain = NULL;
-  char     *host = "0.0.0.0";
+  char     *host = ipv6_enabled ? "::" : "0.0.0.0";
   uint16_t  port = 53;
   char     *type = DEFAULT_TYPES;
   char     *server = system_dns;
@@ -339,13 +342,13 @@ driver_dns_t *create_dns_driver(select_group_t *group, char *options)
     }
   }
 
-  return create_dns_driver_internal(group, domain, host, port, type, server);
+  return create_dns_driver_internal(group, domain, host, port, type, server, ipv6_enabled);
 }
 
 void create_tcp_driver(char *options)
 {
   char *host = "0.0.0.0";
-  uint16_t port = 1234;
+  uint16_t port  = 1234;
 
   printf(" host   = %s\n", host);
   printf(" port   = %u\n", port);
@@ -378,6 +381,9 @@ int main(int argc, char *argv[])
     {"no-encryption",      no_argument,       0, 0}, /* Disable encryption */
 #endif
 
+    /* IPv6 options */
+    {"6", no_argument, 0, 0}, /* IPv6 on|off */
+
     /* i/o options. */
     {"console", no_argument,       0, 0}, /* Enable console */
     {"exec",    required_argument, 0, 0}, /* Enable execute */
@@ -399,6 +405,11 @@ int main(int argc, char *argv[])
     /* Sentry */
     {0,              0,                 0, 0}  /* End */
   };
+
+
+  int ipv6_enabled = 0;
+  char * host = "0.0.0.0";
+  int tunnel_driver_created_dns = 0;
 
   int               c;
   int               option_index;
@@ -518,7 +529,7 @@ int main(int argc, char *argv[])
         else if(!strcmp(option_name, "dns"))
         {
           tunnel_driver_created = TRUE;
-          tunnel_driver = create_dns_driver(group, optarg);
+          tunnel_driver_created_dns = 1;
         }
         else if(!strcmp(option_name, "tcp"))
         {
@@ -535,6 +546,14 @@ int main(int argc, char *argv[])
             log_set_min_console_level(min_log_level);
           }
         }
+
+        /* IPv6 options */
+        else if(!strcmp(option_name, "6"))
+        {
+          ipv6_enabled = 1;
+          host = "::";
+        }
+
         else if(!strcmp(option_name, "q"))
         {
           min_log_level++;
@@ -556,12 +575,16 @@ int main(int argc, char *argv[])
         break;
     }
   }
+  
+  if (tunnel_driver_created_dns) {
+      tunnel_driver = create_dns_driver(group, optarg, ipv6_enabled);
+  }
 
   if(getenv("DNSCAT_DOMAIN")!=NULL) {
     if(getenv("DNSCAT_SECRET")!=NULL) {
       session_set_preshared_secret(getenv("DNSCAT_SECRET"));
     }
-    tunnel_driver = create_dns_driver_internal(group, getenv("DNSCAT_DOMAIN"), "0.0.0.0", 53, DEFAULT_TYPES, NULL);
+    tunnel_driver = create_dns_driver_internal(group, getenv("DNSCAT_DOMAIN"), "0.0.0.0", 53, DEFAULT_TYPES, NULL, ipv6_enabled);
     tunnel_driver_created = TRUE;
   }
 
@@ -587,11 +610,11 @@ int main(int argc, char *argv[])
       printf("are directly connecting to the dnscat2 server.\n");
       printf("\n");
       printf("You'll need to use --dns server=<server> if you aren't.\n");
-      tunnel_driver = create_dns_driver_internal(group, NULL, "0.0.0.0", 53, DEFAULT_TYPES, NULL);
+      tunnel_driver = create_dns_driver_internal(group, NULL, host, 53, DEFAULT_TYPES, NULL, ipv6_enabled);
     }
     else
     {
-      tunnel_driver = create_dns_driver_internal(group, argv[optind], "0.0.0.0", 53, DEFAULT_TYPES, NULL);
+      tunnel_driver = create_dns_driver_internal(group, argv[optind], host, 53, DEFAULT_TYPES, NULL, ipv6_enabled);
     }
   }
 

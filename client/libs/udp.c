@@ -49,6 +49,34 @@ int udp_create_socket(uint16_t port, char *local_address)
   return s;
 }
 
+
+int udp_create_socket2(uint16_t port, char *local_address)
+{
+{
+  int    s;
+  int    value = 1;
+  struct sockaddr_in6 sox6;
+
+  s = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+
+  if(s < 0)
+    nbdie("udp: couldn't create socket");
+
+  if(setsockopt(s, SOL_SOCKET, SO_BROADCAST, (void*)&value, sizeof(int)) < 0)
+    nbdie("udp: couldn't set socket to SO_BROADCAST");
+
+  inet_pton(AF_INET6, local_address, &(sox6.sin6_addr));
+  //sox6.sin6_addr        = in6addr_any;
+  sox6.sin6_family      = AF_INET6;
+  sox6.sin6_port        = htons(port);
+
+  if(bind(s, (struct sockaddr *)&sox6, sizeof(struct sockaddr_in6)) < 0)
+    nbdie("udp: couldn't bind to port (are you running as root?)");
+
+  return s;
+}}
+
+
 ssize_t udp_read(int s, void *buffer, size_t buffer_length, struct sockaddr_in *from)
 {
   ssize_t received;
@@ -63,6 +91,22 @@ ssize_t udp_read(int s, void *buffer, size_t buffer_length, struct sockaddr_in *
 
   return received;
 }
+
+ssize_t udp_read2(int s, void *buffer, size_t buffer_length, struct sockaddr_in *from)
+{
+  ssize_t received;
+  socklen_t fromlen = sizeof(struct sockaddr_in6);
+
+  memset(from, 0, sizeof(struct sockaddr));
+
+  received = recvfrom(s, buffer, buffer_length, 0, (struct sockaddr *)from, &fromlen);
+
+  if ( received < 0 )
+    nbdie("udp: couldn't receive data");
+
+return received;
+}
+
 
 ssize_t udp_send(int sock, char *address, uint16_t port, void *data, size_t length)
 {
@@ -92,6 +136,34 @@ ssize_t udp_send(int sock, char *address, uint16_t port, void *data, size_t leng
 
   return result;
 }
+
+ssize_t udp_send2(int sock, char *address, uint16_t port, void *data, size_t length)
+{
+  int    result = -1;
+  struct sockaddr_in6 serv_addr;
+  struct addrinfo hints, *res;
+  int status;
+
+  char service[5];
+  snprintf(service, sizeof(service), "%d", port);
+
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_INET6; // AF_INET or AF_INET6 to force version
+  hints.ai_socktype = SOCK_STREAM;
+
+  if ((status = getaddrinfo(address, service, &hints, &res)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+        exit(0);
+  }
+
+  result = sendto(sock, data, length, 0, res->ai_addr, res->ai_addrlen);
+
+  if( result < 0 )
+      nbdie("udp: couldn't send data");
+
+  return result;
+}
+
 
 int udp_close(int s)
 {

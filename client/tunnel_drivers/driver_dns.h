@@ -44,10 +44,11 @@ typedef struct
 
   dns_type_t       types[DNS_MAX_TYPES];
   size_t           type_count;
-
+  int              ipv6_enabled;
 } driver_dns_t;
 
-driver_dns_t *driver_dns_create(select_group_t *group, char *domain, char *host, uint16_t port, char *types, char *server);
+driver_dns_t *driver_dns_create(select_group_t *group, char *domain, char *host, uint16_t port, char *types, char *server, int ipv6_enabled);
+
 void          driver_dns_destroy();
 void          driver_dns_go(driver_dns_t *driver);
 

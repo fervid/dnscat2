@@ -210,7 +210,13 @@ static void do_send(driver_dns_t *driver)
   dns_bytes = dns_to_packet(dns, &dns_length);
 
   LOG_INFO("Sending DNS query for: %s to %s:%d", encoded_bytes, driver->dns_server, driver->dns_port);
-  udp_send(driver->s, driver->dns_server, driver->dns_port, dns_bytes, dns_length);
+
+  if (driver->ipv6_enabled) {
+     udp_send2(driver->s, driver->dns_server, driver->dns_port, dns_bytes, dns_length);
+  }
+  else {
+      udp_send(driver->s, driver->dns_server, driver->dns_port, dns_bytes, dns_length);
+  }
 
   safe_free(dns_bytes);
   safe_free(encoded_bytes);
@@ -387,14 +393,15 @@ static SELECT_RESPONSE_t recv_socket_callback(void *group, int s, uint8_t *data,
   return SELECT_OK;
 }
 
-driver_dns_t *driver_dns_create(select_group_t *group, char *domain, char *host, uint16_t port, char *types, char *server)
+driver_dns_t *driver_dns_create(select_group_t *group, char *domain, char *host, uint16_t port, char *types, char *server, int ipv6_enabled)
 {
   driver_dns_t *driver = (driver_dns_t*) safe_malloc(sizeof(driver_dns_t));
   char *token = NULL;
 
   /* Create the actual DNS socket. */
   LOG_INFO("Creating UDP (DNS) socket on %s", host);
-  driver->s = udp_create_socket(0, host);
+  driver->s = ipv6_enabled ? udp_create_socket2(0, host) : udp_create_socket(0, host);
+
   if(driver->s == -1)
   {
     LOG_FATAL("Couldn't create UDP socket!");
@@ -406,6 +413,7 @@ driver_dns_t *driver_dns_create(select_group_t *group, char *domain, char *host,
   driver->domain     = domain;
   driver->dns_port   = port;
   driver->dns_server = server;
+  driver->ipv6_enabled = ipv6_enabled;
 
   /* Allow the user to choose 'any' protocol. */
   if(!strcmp(types, "ANY"))
